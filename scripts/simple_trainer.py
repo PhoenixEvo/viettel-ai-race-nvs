@@ -1107,7 +1107,7 @@ def render_from_checkpoint(
     rasterize_mode = "antialiased"
     if cfg_path.exists():
         with open(cfg_path, "r") as f:
-            cfg_dict = yaml.safe_load(f)
+            cfg_dict = yaml.unsafe_load(f)
             normalize_world_space = cfg_dict.get("normalize_world_space", True)
             rasterize_mode = "antialiased" if cfg_dict.get("antialiased", False) else "classic"
             
