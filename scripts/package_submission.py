@@ -122,10 +122,11 @@ def parse_test_poses(csv_path: Path) -> List[ExpectedImage]:
                     f"Invalid width/height at row {row_idx} in {csv_path}: {exc}"
                 ) from exc
 
+            # The competition server expects the EXACT name from test_poses.csv
             expected.append(
                 ExpectedImage(
                     image_name=image_name,
-                    png_name=_to_png_name(image_name),
+                    png_name=image_name,
                     width=width,
                     height=height,
                 )
@@ -306,10 +307,11 @@ def create_submission_zip(
     with zipfile.ZipFile(output_path, "w", zipfile.ZIP_STORED) as zf:
         for report in ok_reports:
             scene_dir = renders_dir / report.scene_name
-            for png in sorted(scene_dir.glob("*.png")):
-                arcname = f"{report.scene_name}/{png.name}"
-                zf.write(png, arcname)
-                total_files += 1
+            for img_file in sorted(scene_dir.iterdir()):
+                if img_file.is_file():
+                    arcname = f"{report.scene_name}/{img_file.name}"
+                    zf.write(img_file, arcname)
+                    total_files += 1
 
     logger.info(
         "Created %s — %d files from %d scene(s), size %.2f MB",

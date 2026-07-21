@@ -70,16 +70,16 @@ def upload_data():
 
 
 # ---------------------------------------------------------------------------
-# Stage 2: Scene Training (GPU T4)
+# Stage 2: Scene Training (GPU L4)
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    gpu="T4",
+    gpu="L4",
     volumes={"/data": data_volume, "/results": results_volume},
     timeout=7200,  # 2 hours
 )
 def train_scene(scene_name: str, config_name: str = "default.yaml"):
-    """Train 3DGS model for a single scene on a T4 GPU."""
+    """Train 3DGS model for a single scene on a L4 GPU."""
     import sys
     sys.path.append("/root")
     from scripts.train import train_scene as run_train
@@ -157,11 +157,11 @@ def train_all_scenes(config_name: str = "default.yaml"):
 
 
 # ---------------------------------------------------------------------------
-# Stage 4: Test Pose Batch Rendering (GPU T4)
+# Stage 4: Test Pose Batch Rendering (GPU L4)
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    gpu="T4",
+    gpu="L4",
     volumes={"/data": data_volume, "/results": results_volume},
     timeout=3600,  # 1 hour
 )
@@ -175,6 +175,10 @@ def render_all_scenes(config_name: str = "default.yaml"):
     results_dir = "/results/runs"
     renders_dir = "/results/renders"
     config_path = f"/root/configs/{config_name}"
+    
+    print("Cleaning up old renders from volume to prevent stale extra files...")
+    import shutil
+    shutil.rmtree(renders_dir, ignore_errors=True)
     
     print("Starting rendering process for all test poses...")
     
@@ -230,6 +234,23 @@ def package_submission():
 
 
 # ---------------------------------------------------------------------------
+# Stage 6: Quick Clean (Remove old DJI_*.png renders)
+# ---------------------------------------------------------------------------
+@app.function(
+    image=upload_image,
+    volumes={"/results": results_volume},
+)
+def clean_extra():
+    """Completely wipe the renders directory to avoid mixed files."""
+    import shutil
+    renders_dir = "/results/renders"
+    print(f"Completely wiping {renders_dir}...")
+    shutil.rmtree(renders_dir, ignore_errors=True)
+    results_volume.commit()
+    print("Cleaned!")
+
+
+# ---------------------------------------------------------------------------
 # Local Entrypoint
 # ---------------------------------------------------------------------------
 @app.local_entrypoint()
@@ -243,6 +264,7 @@ def main(action: str, scene: str = None):
       modal run modal_app.py --action train_all
       modal run modal_app.py --action render
       modal run modal_app.py --action package
+      modal run modal_app.py --action clean
     """
     if action == "upload":
         upload_data.remote()
@@ -257,6 +279,8 @@ def main(action: str, scene: str = None):
         render_all_scenes.remote()
     elif action == "package":
         package_submission.remote()
+    elif action == "clean":
+        clean_extra.remote()
     else:
         print(f"Unknown action: {action}")
-        print("Supported actions: upload, train, train_all, render, package")
+        print("Supported actions: upload, train, train_all, render, package, clean")
