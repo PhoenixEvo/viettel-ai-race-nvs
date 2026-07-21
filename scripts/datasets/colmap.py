@@ -199,20 +199,44 @@ class Parser:
         image_paths = [os.path.join(image_dir, colmap_to_image[f]) for f in image_names]
 
         # 3D points and {image_name -> [point_idx]}
-        points = manager.points3D.astype(np.float32)
-        points_err = manager.point3D_errors.astype(np.float32)
-        points_rgb = manager.point3D_colors.astype(np.uint8)
-        point_indices = dict()
+        if hasattr(manager, "point3D_errors"):
+            points = manager.points3D.astype(np.float32)
+            points_err = manager.point3D_errors.astype(np.float32)
+            points_rgb = manager.point3D_colors.astype(np.uint8)
+            point_indices = dict()
 
-        image_id_to_name = {v: k for k, v in manager.name_to_image_id.items()}
-        for point_id, data in manager.point3D_id_to_images.items():
-            for image_id, _ in data:
-                image_name = image_id_to_name[image_id]
-                point_idx = manager.point3D_id_to_point3D_idx[point_id]
-                point_indices.setdefault(image_name, []).append(point_idx)
-        point_indices = {
-            k: np.array(v).astype(np.int32) for k, v in point_indices.items()
-        }
+            image_id_to_name = {v: k for k, v in manager.name_to_image_id.items()}
+            for point_id, data in manager.point3D_id_to_images.items():
+                for image_id, _ in data:
+                    image_name = image_id_to_name[image_id]
+                    point_idx = manager.point3D_id_to_point3D_idx[point_id]
+                    point_indices.setdefault(image_name, []).append(point_idx)
+            point_indices = {
+                k: np.array(v).astype(np.int32) for k, v in point_indices.items()
+            }
+        else:
+            # Modern pycolmap Reconstruction compatibility
+            pts3D = manager.points3D
+            if len(pts3D) > 0:
+                points = np.stack([p.xyz for p in pts3D.values()]).astype(np.float32)
+                points_err = np.array([p.error for p in pts3D.values()]).astype(np.float32)
+                points_rgb = np.stack([p.color for p in pts3D.values()]).astype(np.uint8)
+            else:
+                points = np.empty((0, 3), dtype=np.float32)
+                points_err = np.empty(0, dtype=np.float32)
+                points_rgb = np.empty((0, 3), dtype=np.uint8)
+            
+            point3D_id_to_idx = {pid: i for i, pid in enumerate(pts3D.keys())}
+            point_indices = dict()
+            for image_id, im in manager.images.items():
+                image_name = im.name
+                visible_pt_ids = []
+                for p2d in im.points2D:
+                    if p2d.has_point3D():
+                        pid = p2d.point3D_id
+                        if pid in point3D_id_to_idx:
+                            visible_pt_ids.append(point3D_id_to_idx[pid])
+                point_indices[image_name] = np.array(visible_pt_ids, dtype=np.int32)
 
         # Normalize the world space.
         if normalize:
