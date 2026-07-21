@@ -1085,17 +1085,44 @@ def render_from_checkpoint(
     ckpt_path: str,
     test_poses: list,
     output_dir: str,
+    data_dir: str,
     device: str = "cuda",
 ) -> None:
     from scripts.colmap_parser import qvec_to_rotmat
     import torch
     import numpy as np
     from pathlib import Path
+    import yaml
     from gsplat.rendering import rasterization
+    from datasets.colmap import Parser
 
     print(f"Loading checkpoint {ckpt_path}...")
     checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
     splats = {k: v.to(device) for k, v in checkpoint["splats"].items()}
+
+    ckpt_p = Path(ckpt_path)
+    cfg_path = ckpt_p.parent.parent / "cfg.yml"
+    
+    normalize_world_space = True
+    rasterize_mode = "antialiased"
+    if cfg_path.exists():
+        with open(cfg_path, "r") as f:
+            cfg_dict = yaml.safe_load(f)
+            normalize_world_space = cfg_dict.get("normalize_world_space", True)
+            rasterize_mode = "antialiased" if cfg_dict.get("antialiased", False) else "classic"
+            
+    print(f"Config: normalize_world_space={normalize_world_space}, rasterize_mode={rasterize_mode}")
+
+    # Load Parser to get the transform matrix if normalization was used
+    scene_dir = str(Path(data_dir))
+    parser = Parser(
+        data_dir=scene_dir,
+        factor=1,
+        normalize=normalize_world_space,
+        test_every=8,
+    )
+    
+    transform_matrix = torch.from_numpy(parser.transform).float().to(device)
 
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -1106,7 +1133,16 @@ def render_from_checkpoint(
         w2c = np.eye(4)
         w2c[:3, :3] = R
         w2c[:3, 3] = test_pose.tvec
-        viewmat = torch.from_numpy(w2c).float().to(device).unsqueeze(0)
+        
+        # We need c2w to apply the transform
+        c2w = np.linalg.inv(w2c)
+        c2w = torch.from_numpy(c2w).float().to(device)
+        
+        # Apply normalization transform
+        if normalize_world_space:
+            c2w = transform_matrix @ c2w
+            
+        viewmat = torch.linalg.inv(c2w).unsqueeze(0)
         
         K = np.array([
             [test_pose.fx, 0, test_pose.cx],
@@ -1133,7 +1169,7 @@ def render_from_checkpoint(
             width=int(test_pose.width),
             height=int(test_pose.height),
             sh_degree=_sh_degree,
-            rasterize_mode="antialiased"
+            rasterize_mode=rasterize_mode
         )
         
         img_tensor = torch.clamp(renders[0], 0.0, 1.0)

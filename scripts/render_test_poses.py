@@ -45,7 +45,7 @@ def render_all_scenes(
         
         out_dir = renders_path / scene
         print(f"Rendering {scene} from {latest_ckpt}...")
-        render_from_checkpoint(str(latest_ckpt), test_poses, str(out_dir), device)
+        render_from_checkpoint(str(latest_ckpt), test_poses, str(out_dir), str(data_path / scene), device)
         
         total_images += len(test_poses)
         processed_scenes += 1
