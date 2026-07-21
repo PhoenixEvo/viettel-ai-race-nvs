@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints
+
+# Datasets & Outputs
+datasets/
+checkpoints/
+renders/
+logs/
+submission.zip
+
+# IDEs and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Virtual Environments
+.venv/
+venv/
+env/
++bin/
++lib/
++include/
+AGENT.md
+.gitignore

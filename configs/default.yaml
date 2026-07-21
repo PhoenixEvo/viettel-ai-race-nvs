@@ -1,0 +1,68 @@
+# BTS Digital Twin - 3DGS Training Configuration
+# Quality-maximizing settings for L4 GPU (24GB VRAM)
+
+# Training schedule
+max_steps: 30000
+batch_size: 1
+val_every: 1000
+checkpoint_every: 5000
+eval_steps: [7000, 15000, 30000]
+save_steps: [7000, 15000, 30000]
+
+# Model
+sh_degree: 3
+sh_degree_interval: 1000
+init_opacity: 0.1
+init_scale: 1.0
+
+# Loss
+ssim_lambda: 0.2
+opacity_reg: 0.001
+scale_reg: 0.01
+depth_loss: true
+depth_lambda: 0.01
+depth_rampup_iters: 3000
+
+# Densification (AbsGrad / Pixel-GS style)
+densify_start_iter: 500
+densify_stop_iter: 15000
+densify_every: 100
+densify_grad_thresh: 0.0002
+opacity_reset_every: 3000
+max_gaussians: 5000000
+
+# Learning Rates
+means_lr: 1.6e-4
+means_lr_final: 1.6e-6
+scales_lr: 5.0e-3
+quats_lr: 1.0e-3
+opacities_lr: 5.0e-2
+sh0_lr: 2.5e-3
+shN_lr: 1.25e-4
+
+# Appearance Embeddings
+app_opt: true
+app_embed_dim: 32
+app_mlp_width: 64
+app_mlp_depth: 2
+app_opt_lr: 1.0e-3
+app_opt_reg: 1.0e-6
+
+# Mip-Splatting
+antialiased: true
+rasterize_mode: antialiased
+
+# Rendering
+near_plane: 0.01
+far_plane: 1000.0
+background:
+  - 0.0
+  - 0.0
+  - 0.0
+
+# Scene normalization
+normalize_world_space: true
+
+# Validation
+test_every: 8
+lpips_net: alex
