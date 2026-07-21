@@ -1,18 +1,13 @@
-# Competition config — gsplat v1.4.0 — optimized for BTS aerial outdoor scenes
+# Competition config — gsplat v1.4.0 — optimized for BTS aerial outdoor
 max_steps: 50000
 sh_degree: 3
 ssim_lambda: 0.2
-app_opt: false        # disabled: aerial BTS has consistent lighting, app_opt hurts NVS
-antialiased: true     # Mip-Splatting style anti-aliasing — critical for drone zoom views
+app_opt: false
+antialiased: true
 packed: true
+use_mcmc: false
 
-# Eval & save checkpoints
 eval_steps: [7000, 15000, 30000, 50000]
 save_steps: [7000, 15000, 30000, 50000]
 
-# Strategy: mcmc gives better Gaussian distribution for outdoor aerial
-# Switch to mcmc by setting use_mcmc: true
-use_mcmc: false   # set true to enable MCMCStrategy (slower but better for sparse areas)
-
-# Background — white for outdoor sky
 background_color: [1.0, 1.0, 1.0]

@@ -42,8 +42,9 @@ def train_scene(
     print(f"Sample image {sample_img.size}. Using data_factor={data_factor}")
     
     # 2. Build subprocess command
+    subcommand = "mcmc" if cfg.get("use_mcmc") else "default"
     cmd = [
-        sys.executable, "/root/scripts/simple_trainer.py", "default",
+        sys.executable, "/root/scripts/simple_trainer.py", subcommand,
         "--data_dir", str(scene_dir),
         "--result_dir", str(result_dir),
         "--data_factor", str(data_factor),
@@ -64,8 +65,7 @@ def train_scene(
     if cfg.get("app_opt"):
         cmd.append("--app_opt")
         
-    if cfg.get("use_mcmc"):
-        cmd.extend(["--strategy.name", "mcmc"])
+        
         
     if cfg.get("packed"):
         cmd.append("--packed")

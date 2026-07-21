@@ -1,5 +1,5 @@
-# MCMCStrategy config — better for aerial outdoor BTS scenes
-# Use: modal run modal_app.py --action train_all --config-name mcmc.yaml
+# MCMCStrategy config for BTS aerial — better Gaussian distribution outdoor
+# Usage: modal run modal_app.py --action train_all --config-name mcmc.yaml
 max_steps: 50000
 sh_degree: 3
 ssim_lambda: 0.2
