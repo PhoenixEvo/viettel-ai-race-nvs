@@ -27,8 +27,10 @@ def render_all_scenes(
     for scene in scenes:
         scene_results = results_path / scene
         
-        # Check both save patterns (with and without /checkpoints/ subdir)
-        ckpts = list((scene_results / "checkpoints").glob("ckpt_*.pt"))
+        # Check save patterns (prioritize 'ckpts' subdirectory and rank0 pattern)
+        ckpts = list((scene_results / "ckpts").glob("ckpt_*_rank0.pt"))
+        if not ckpts:
+            ckpts = list((scene_results / "checkpoints").glob("ckpt_*.pt"))
         if not ckpts:
             ckpts = list(scene_results.glob("ckpt_*.pt"))
             
