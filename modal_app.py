@@ -78,7 +78,7 @@ def upload_data():
     volumes={"/data": data_volume, "/results": results_volume},
     timeout=7200,  # 2 hours
 )
-def train_scene(scene_name: str, config_name: str = "default.yaml"):
+def train_scene(scene_name: str, config_name: str = "default.yaml", force_retrain: bool = False):
     """Train 3DGS model for a single scene on a L4 GPU."""
     import sys
     sys.path.append("/root")
@@ -102,7 +102,7 @@ def train_scene(scene_name: str, config_name: str = "default.yaml"):
         scene_dir=scene_dir,
         result_dir=result_dir,
         config_path=config_path,
-        resume=True,
+        resume=not force_retrain,
         device="cuda",
         checkpoint_callback=commit_callback,
     )
@@ -119,7 +119,7 @@ def train_scene(scene_name: str, config_name: str = "default.yaml"):
     volumes={"/data": data_volume},
     timeout=28800,  # 8 hours
 )
-def train_all_scenes(config_name: str = "default.yaml"):
+def train_all_scenes(config_name: str = "default.yaml", force_retrain: bool = False):
     """Orchestrate training of all scenes in parallel."""
     import sys
     
@@ -140,7 +140,11 @@ def train_all_scenes(config_name: str = "default.yaml"):
     calls = []
     for scene in scenes:
         try:
-            calls.append((scene, train_scene.spawn(scene_name=scene, config_name=config_name)))
+            calls.append((scene, train_scene.spawn(
+                scene_name=scene,
+                config_name=config_name,
+                force_retrain=force_retrain
+            )))
         except Exception as e:
             print(f"Failed to spawn training for scene {scene}: {e}")
             
@@ -254,7 +258,7 @@ def clean_extra():
 # Local Entrypoint
 # ---------------------------------------------------------------------------
 @app.local_entrypoint()
-def main(action: str, scene: str = None):
+def main(action: str, scene: str = None, force_retrain: bool = False):
     """
     Main orchestrator entrypoint.
     
@@ -272,9 +276,9 @@ def main(action: str, scene: str = None):
         if not scene:
             print("Please specify a scene name: --scene <scene_name>")
             return
-        train_scene.remote(scene_name=scene)
+        train_scene.remote(scene_name=scene, force_retrain=force_retrain)
     elif action == "train_all":
-        train_all_scenes.remote()
+        train_all_scenes.remote(force_retrain=force_retrain)
     elif action == "render":
         render_all_scenes.remote()
     elif action == "package":

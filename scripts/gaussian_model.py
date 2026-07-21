@@ -539,55 +539,39 @@ class GaussianModel:
             self.splats["opacities"].data = inverse_sigmoid(new_opa)
         logger.info(f"Reset opacities to max={new_opacity}")
 
-    def _replace_params(self, new_params: Dict[str, torch.Tensor], keep_mask: Optional[torch.Tensor] = None, n_clone: int = 0, n_split: int = 0):
+    def _replace_params(self, new_params: Dict[str, torch.Tensor],
+                        keep_mask: Optional[torch.Tensor] = None,
+                        n_clone: int = 0,
+                        n_split: int = 0):
         """Replace all Gaussian parameters and preserve optimizer states."""
-        for name, data in new_params.items():
-            self.splats[name] = nn.Parameter(data.to(self.device))
-
-        # Re-create optimizers
-        lr_map = {}
-        for name, opt in self.optimizers.items():
-            lr_map[name] = opt.param_groups[0]["lr"]
-
-        new_optimizers = {}
         for name in new_params.keys():
-            opt = torch.optim.Adam(
-                [{"params": self.splats[name], "lr": lr_map[name], "name": name}],
-                eps=1e-15, betas=(0.9, 0.999), fused=True,
+            old_param = self.splats[name]
+            old_opt = self.optimizers[name]
+            old_lr = old_opt.param_groups[0]["lr"]
+            
+            new_param = nn.Parameter(new_params[name].to(self.device))
+            new_opt = torch.optim.Adam(
+                [{"params": new_param, "lr": old_lr, "name": name}],
+                eps=1e-15, betas=(0.9, 0.999), fused=True
             )
             
-            # Restore state if provided
-            if keep_mask is not None and name in self.optimizers:
-                old_opt = self.optimizers[name]
-                if len(old_opt.state) > 0:
-                    old_state = list(old_opt.state.values())[0]
-                    if "exp_avg" in old_state:
-                        kept_avg = old_state["exp_avg"][keep_mask]
-                        kept_avg_sq = old_state["exp_avg_sq"][keep_mask]
-                        
-                        zeros_shape_c = (n_clone, *kept_avg.shape[1:])
-                        zeros_shape_s = (n_split * 2, *kept_avg.shape[1:])
-                        
-                        new_avg = torch.cat([
-                            kept_avg,
-                            torch.zeros(zeros_shape_c, device=self.device),
-                            torch.zeros(zeros_shape_s, device=self.device)
-                        ], dim=0)
-                        
-                        new_avg_sq = torch.cat([
-                            kept_avg_sq,
-                            torch.zeros(zeros_shape_c, device=self.device),
-                            torch.zeros(zeros_shape_s, device=self.device)
-                        ], dim=0)
-                        
-                        opt.state[self.splats[name]] = {
-                            "step": old_state["step"],
-                            "exp_avg": new_avg,
-                            "exp_avg_sq": new_avg_sq
-                        }
-            new_optimizers[name] = opt
-            
-        self.optimizers = new_optimizers
+            if keep_mask is not None and old_param in old_opt.state:
+                old_state = old_opt.state[old_param]
+                if "exp_avg" in old_state:
+                    def _migrate(t):
+                        kept = t[keep_mask]
+                        z_c = torch.zeros((n_clone,) + t.shape[1:], dtype=t.dtype, device=t.device)
+                        z_s = torch.zeros((n_split * 2,) + t.shape[1:], dtype=t.dtype, device=t.device)
+                        return torch.cat([kept, z_c, z_s], dim=0)
+                    
+                    new_opt.state[new_param] = {
+                        "step": old_state["step"],
+                        "exp_avg": _migrate(old_state["exp_avg"]),
+                        "exp_avg_sq": _migrate(old_state["exp_avg_sq"]),
+                    }
+                    
+            self.splats[name] = new_param
+            self.optimizers[name] = new_opt
 
     def _reset_densification_stats(self):
         """Reset gradient accumulation buffers."""
