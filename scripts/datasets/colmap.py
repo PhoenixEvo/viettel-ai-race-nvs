@@ -90,7 +90,7 @@ class Parser:
 
             # Get distortion parameters.
             type_ = getattr(cam, "model_name", getattr(cam, "camera_type", ""))
-            type_str = str(type_)
+            type_str = str(type_).upper()
             params_arr = cam.params if hasattr(cam, "params") else []
 
             if "SIMPLE_PINHOLE" in type_str or type_ == 0:
@@ -111,6 +111,8 @@ class Parser:
             elif "OPENCV" in type_str or type_ == 4:
                 params = np.array([params_arr[4], params_arr[5], params_arr[6], params_arr[7]], dtype=np.float32)
                 camtype = "perspective"
+            else:
+                raise ValueError(f"Unknown camera model: {type_str} (original: {type_})")
             assert (
                 camtype == "perspective" or camtype == "fisheye"
             ), f"Only perspective and fisheye cameras are supported, got {type_}"
