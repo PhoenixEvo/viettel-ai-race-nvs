@@ -74,9 +74,9 @@ def upload_data():
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    gpu="L4",
+    gpu="A10G",
     volumes={"/data": data_volume, "/results": results_volume},
-    timeout=7200,  # 2 hours
+    timeout=10800,  # 3 hours
 )
 def train_scene(scene_name: str, config_name: str = "default.yaml", force_retrain: bool = False):
     """Train 3DGS model for a single scene on a L4 GPU."""
@@ -150,12 +150,30 @@ def train_all_scenes(config_name: str = "default.yaml", force_retrain: bool = Fa
             
     # Collect results (orchestrator waits, but all containers train in parallel)
     print(f"Waiting for {len(calls)} scenes to finish in parallel...")
+    failed_scenes = []
     for scene, call in calls:
         try:
             result = call.get()
             print(f"Scene {scene} completed successfully: {result}")
         except Exception as e:
             print(f"Error training scene {scene}: {e}")
+            failed_scenes.append(scene)
+            
+    if failed_scenes:
+        print(f"Retrying {len(failed_scenes)} failed scenes...")
+        retry_calls = []
+        for scene in failed_scenes:
+            retry_calls.append((scene, train_scene.spawn(
+                scene_name=scene,
+                config_name=config_name,
+                force_retrain=force_retrain
+            )))
+        for scene, call in retry_calls:
+            try:
+                call.get()
+                print(f"Scene {scene} retry completed successfully.")
+            except Exception as e:
+                print(f"Scene {scene} retry failed again: {e}")
             
     print("All scene training loops completed.")
 
@@ -165,7 +183,7 @@ def train_all_scenes(config_name: str = "default.yaml", force_retrain: bool = Fa
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    gpu="L4",
+    gpu="A10G",
     volumes={"/data": data_volume, "/results": results_volume},
     timeout=3600,  # 1 hour
 )

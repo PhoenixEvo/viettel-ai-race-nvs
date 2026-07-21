@@ -219,9 +219,26 @@ class SceneDataset:
             cam = self.colmap_scene.cameras[img.camera_id]
             w2c = img.w2c_matrix()
             w2c_norm = self.norm.normalize_w2c(w2c)
-            K = cam.K(scale=1.0 / data_factor)
-            width = cam.width // data_factor
-            height = cam.height // data_factor
+            
+            width = cam.width
+            height = cam.height
+            if max(width, height) > 1600:
+                downsample_factor = max(width, height) / 1600.0
+                new_w = int(round(width / downsample_factor / 2) * 2)
+                new_h = int(round(height / downsample_factor / 2) * 2)
+                scale_x = new_w / width
+                scale_y = new_h / height
+                
+                K = cam.K(scale=1.0).copy()
+                K[0, 0] *= scale_x
+                K[1, 1] *= scale_y
+                K[0, 2] *= scale_x
+                K[1, 2] *= scale_y
+                
+                width = new_w
+                height = new_h
+            else:
+                K = cam.K(scale=1.0)
 
             all_cameras.append(CameraData(
                 image_name=img.name,

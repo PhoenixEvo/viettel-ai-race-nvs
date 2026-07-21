@@ -212,11 +212,12 @@ class GaussianModel:
             logger.info(f"Step {step}: SH degree → {self.active_sh_degree}")
 
     def update_learning_rate(self, step: int, max_steps: int):
-        """Exponential decay for means learning rate."""
+        """Cosine decay for means learning rate."""
+        import math
         if max_steps <= 0:
             return
-        t = min(step / max_steps, 1.0)
-        lr = self._means_lr_init * (self._means_lr_final / self._means_lr_init) ** t
+        progress = min(step / max_steps, 1.0)
+        lr = self._means_lr_final + 0.5 * (self._means_lr_init - self._means_lr_final) * (1 + math.cos(math.pi * progress))
         for pg in self.optimizers["means"].param_groups:
             pg["lr"] = lr
 

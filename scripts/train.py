@@ -120,7 +120,7 @@ def compute_lpips(pred: Tensor, target: Tensor, lpips_fn) -> float:
 
 
 def compute_competition_score(psnr: float, ssim: float, lpips: float,
-                              psnr_max: float = 50.0) -> float:
+                              psnr_max: float = 40.0) -> float:
     """Approximate the competition scoring function.
 
     Score = 0.4 * (1 - LPIPS) + 0.3 * SSIM + 0.3 * PSNR_norm
@@ -309,6 +309,16 @@ def train_scene(
         loss_l1 = l1_loss(rendered, gt_image)
         loss_ssim = ssim_loss(rendered, gt_image)
         loss = (1.0 - ssim_lambda) * loss_l1 + ssim_lambda * loss_ssim
+
+        # LPIPS perceptual loss ramp-in (Priority 3b)
+        if lpips_fn is not None and step > 5000:
+            lpips_weight = min(1.0, (step - 5000) / 5000) * 0.05
+            lpips_input = rendered * 2.0 - 1.0
+            gt_input = gt_image * 2.0 - 1.0
+            lpips_input = lpips_input.permute(2, 0, 1).unsqueeze(0)
+            gt_input = gt_input.permute(2, 0, 1).unsqueeze(0)
+            loss_lpips_train = lpips_fn(lpips_input, gt_input).mean()
+            loss = loss + lpips_weight * loss_lpips_train
 
         # Opacity regularization
         if opacity_reg_weight > 0:
