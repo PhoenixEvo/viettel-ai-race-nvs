@@ -44,7 +44,6 @@ image = (
     )
     .env({"CUDA_HOME": "/usr/local/cuda"})
     .pip_install("gsplat==1.4.0", extra_index_url="https://download.pytorch.org/whl/cu121")
-    .run_commands("pip install git+https://github.com/rahul-goel/fused-ssim/ --no-build-isolation")
     .add_local_dir("./scripts", "/root/scripts")
     .add_local_dir("./configs", "/root/configs")
 )
