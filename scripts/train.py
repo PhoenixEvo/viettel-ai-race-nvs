@@ -51,6 +51,7 @@ def train_scene(
         "--max_steps", str(cfg["max_steps"]),
         "--eval_steps", "7000", "15000", "30000", str(cfg["max_steps"]),
         "--save_steps", "7000", "15000", "30000", str(cfg["max_steps"]),
+        "--disable_viewer",
     ]
     
     if cfg.get("sh_degree") is not None:
