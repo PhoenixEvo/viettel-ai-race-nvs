@@ -178,6 +178,8 @@ class Parser:
             image_dir_suffix = ""
         colmap_image_dir = os.path.join(data_dir_base, "images")
         image_dir = os.path.join(data_dir_base, "images" + image_dir_suffix)
+        if not os.path.exists(image_dir):
+            image_dir = colmap_image_dir
         for d in [image_dir, colmap_image_dir]:
             if not os.path.exists(d):
                 raise ValueError(f"Image folder {d} does not exist.")
@@ -349,6 +351,11 @@ class Dataset:
         index = self.indices[item]
         image = imageio.imread(self.parser.image_paths[index])[..., :3]
         camera_id = self.parser.camera_ids[index]
+        expected_w, expected_h = self.parser.imsize_dict[camera_id]
+        if image.shape[1] != expected_w or image.shape[0] != expected_h:
+            image = cv2.resize(
+                image, (expected_w, expected_h), interpolation=cv2.INTER_AREA
+            )
         K = self.parser.Ks_dict[camera_id].copy()  # undistorted K
         params = self.parser.params_dict[camera_id]
         camtoworlds = self.parser.camtoworlds[index]
