@@ -89,7 +89,17 @@ class Parser:
             Ks_dict[camera_id] = K
 
             # Get distortion parameters.
-            type_ = getattr(cam, "model_name", getattr(cam, "camera_type", ""))
+            type_ = ""
+            for attr in ["model_name", "model", "camera_type", "camera_model"]:
+                if hasattr(cam, attr):
+                    val = getattr(cam, attr)
+                    if val:
+                        type_ = val
+                        break
+            
+            if not type_:
+                raise ValueError(f"Could not find camera model attribute on {cam}. Available attributes: {dir(cam)}")
+
             type_str = str(type_).upper()
             params_arr = cam.params if hasattr(cam, "params") else []
 
