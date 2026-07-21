@@ -64,6 +64,9 @@ def train_scene(
     if cfg.get("app_opt"):
         cmd.append("--app_opt")
         
+    if cfg.get("use_mcmc"):
+        cmd.extend(["--strategy.name", "mcmc"])
+        
     if cfg.get("packed"):
         cmd.append("--packed")
         

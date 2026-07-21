@@ -1,18 +1,18 @@
-# Competition config — gsplat simple_trainer (v1.4.0) adapted for BTS aerial
-max_steps: 30000
+# Competition config — gsplat v1.4.0 — optimized for BTS aerial outdoor scenes
+max_steps: 50000
 sh_degree: 3
 ssim_lambda: 0.2
-app_opt: true
-antialiased: true
+app_opt: false        # disabled: aerial BTS has consistent lighting, app_opt hurts NVS
+antialiased: true     # Mip-Splatting style anti-aliasing — critical for drone zoom views
 packed: true
 
-# Eval & save
-eval_steps: [7000, 15000, 30000]
-save_steps: [7000, 15000, 30000]
+# Eval & save checkpoints
+eval_steps: [7000, 15000, 30000, 50000]
+save_steps: [7000, 15000, 30000, 50000]
 
-# data_factor is auto-computed in train.py based on image resolution
-# (set manually here only if you want to override auto-detection)
-# data_factor: 4
+# Strategy: mcmc gives better Gaussian distribution for outdoor aerial
+# Switch to mcmc by setting use_mcmc: true
+use_mcmc: false   # set true to enable MCMCStrategy (slower but better for sparse areas)
 
-# Background (white = better for outdoor sky)
+# Background — white for outdoor sky
 background_color: [1.0, 1.0, 1.0]
