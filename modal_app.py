@@ -278,7 +278,7 @@ def clean_extra():
 # Local Entrypoint
 # ---------------------------------------------------------------------------
 @app.local_entrypoint()
-def main(action: str, scene: str = None, force_retrain: bool = False):
+def main(action: str, scene: str = None, force_retrain: bool = False, config_name: str = "default.yaml"):
     """
     Main orchestrator entrypoint.
     
@@ -296,11 +296,11 @@ def main(action: str, scene: str = None, force_retrain: bool = False):
         if not scene:
             print("Please specify a scene name: --scene <scene_name>")
             return
-        train_scene.remote(scene_name=scene, force_retrain=force_retrain)
+        train_scene.remote(scene_name=scene, config_name=config_name, force_retrain=force_retrain)
     elif action == "train_all":
-        train_all_scenes.remote(force_retrain=force_retrain)
+        train_all_scenes.remote(config_name=config_name, force_retrain=force_retrain)
     elif action == "render":
-        render_all_scenes.remote()
+        render_all_scenes.remote(config_name=config_name)
     elif action == "package":
         package_submission.remote()
     elif action == "clean":
