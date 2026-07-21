@@ -73,12 +73,12 @@ def train_scene(
         
     # Check for resume
     latest_ckpt_path = None
-    checkpoints_dir = Path(result_dir) / "checkpoints"
+    checkpoints_dir = Path(result_dir) / "ckpts"
     if resume and checkpoints_dir.exists():
-        ckpts = list(checkpoints_dir.glob("ckpt_*.pt"))
+        ckpts = list(checkpoints_dir.glob("ckpt_*_rank0.pt"))
         if ckpts:
-            latest_ckpt_path = max(ckpts, key=lambda p: int(p.stem.split("_")[1].split(".")[0]))
-            cmd.extend(["--ckpt_path", str(latest_ckpt_path)])
+            latest_ckpt_path = max(ckpts, key=lambda p: int(p.stem.split("_")[1]))
+            cmd.extend(["--ckpt", str(latest_ckpt_path)])
             print(f"Resuming from {latest_ckpt_path}")
             
     # 3. Run subprocess
