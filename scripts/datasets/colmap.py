@@ -81,31 +81,36 @@ class Parser:
 
             # camera intrinsics
             cam = manager.cameras[camera_id]
-            fx, fy, cx, cy = cam.fx, cam.fy, cam.cx, cam.cy
-            K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+            if hasattr(cam, "calibration_matrix"):
+                K = cam.calibration_matrix()
+            else:
+                K = np.array([[cam.fx, 0, cam.cx], [0, cam.fy, cam.cy], [0, 0, 1]])
             K[:2, :] /= factor
             Ks_dict[camera_id] = K
 
             # Get distortion parameters.
-            type_ = cam.camera_type
-            if type_ == 0 or type_ == "SIMPLE_PINHOLE":
+            type_ = getattr(cam, "model_name", getattr(cam, "camera_type", ""))
+            type_str = str(type_)
+            params_arr = cam.params if hasattr(cam, "params") else []
+
+            if "SIMPLE_PINHOLE" in type_str or type_ == 0:
                 params = np.empty(0, dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == 1 or type_ == "PINHOLE":
+            elif "PINHOLE" in type_str or type_ == 1:
                 params = np.empty(0, dtype=np.float32)
                 camtype = "perspective"
-            if type_ == 2 or type_ == "SIMPLE_RADIAL":
-                params = np.array([cam.k1, 0.0, 0.0, 0.0], dtype=np.float32)
+            elif "SIMPLE_RADIAL" in type_str or type_ == 2:
+                params = np.array([params_arr[3], 0.0, 0.0, 0.0], dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == 3 or type_ == "RADIAL":
-                params = np.array([cam.k1, cam.k2, 0.0, 0.0], dtype=np.float32)
+            elif "RADIAL" in type_str or type_ == 3:
+                params = np.array([params_arr[3], params_arr[4], 0.0, 0.0], dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == 4 or type_ == "OPENCV":
-                params = np.array([cam.k1, cam.k2, cam.p1, cam.p2], dtype=np.float32)
-                camtype = "perspective"
-            elif type_ == 5 or type_ == "OPENCV_FISHEYE":
-                params = np.array([cam.k1, cam.k2, cam.k3, cam.k4], dtype=np.float32)
+            elif "OPENCV_FISHEYE" in type_str or type_ == 5:
+                params = np.array([params_arr[4], params_arr[5], params_arr[6], params_arr[7]], dtype=np.float32)
                 camtype = "fisheye"
+            elif "OPENCV" in type_str or type_ == 4:
+                params = np.array([params_arr[4], params_arr[5], params_arr[6], params_arr[7]], dtype=np.float32)
+                camtype = "perspective"
             assert (
                 camtype == "perspective" or camtype == "fisheye"
             ), f"Only perspective and fisheye cameras are supported, got {type_}"
