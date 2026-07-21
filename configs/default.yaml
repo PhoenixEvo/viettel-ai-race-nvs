@@ -1,13 +1,24 @@
-# Competition config — gsplat v1.4.0 — optimized for BTS aerial outdoor
-max_steps: 50000
+# Competition config — gsplat v1.4.0 — BTS aerial outdoor
+max_steps: 30000
 sh_degree: 3
-ssim_lambda: 0.2
+ssim_lambda: 0.3
 app_opt: false
 antialiased: true
 packed: true
 use_mcmc: false
 
-eval_steps: [7000, 15000, 30000, 50000]
-save_steps: [7000, 15000, 30000, 50000]
+# Outdoor sky/background: prevents Gaussians from memorising black bg
+random_bkgd: true
 
-background_color: [1.0, 1.0, 1.0]
+# Bilateral grid: corrects per-image lighting/exposure variation from drone
+use_bilateral_grid: true
+
+# Regularization: prune floaters in sparse aerial regions
+opacity_reg: 0.01
+scale_reg: 0.005
+
+# Use all training images — with only 100-300 images/scene, every image counts
+test_every: 999999
+
+eval_steps: [7000, 15000, 30000]
+save_steps: [7000, 15000, 30000]

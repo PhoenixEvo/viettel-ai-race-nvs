@@ -30,11 +30,9 @@ def train_scene(
     w, h = sample_img.size
     max_dim = max(w, h)
     
-    if max_dim > 3200:
-        data_factor = 8
-    elif max_dim > 1600:
+    if max_dim > 4800:
         data_factor = 4
-    elif max_dim > 800:
+    elif max_dim > 2400:
         data_factor = 2
     else:
         data_factor = 1
@@ -43,33 +41,55 @@ def train_scene(
     
     # 2. Build subprocess command
     subcommand = "mcmc" if cfg.get("use_mcmc") else "default"
+
+    # Read eval/save steps from config (not hardcoded)
+    eval_steps = cfg.get("eval_steps", [7000, 30000, cfg["max_steps"]])
+    save_steps = cfg.get("save_steps", [7000, 30000, cfg["max_steps"]])
+    if cfg["max_steps"] not in eval_steps:
+        eval_steps = list(eval_steps) + [cfg["max_steps"]]
+    if cfg["max_steps"] not in save_steps:
+        save_steps = list(save_steps) + [cfg["max_steps"]]
+
     cmd = [
         sys.executable, "/root/scripts/simple_trainer.py", subcommand,
         "--data_dir", str(scene_dir),
         "--result_dir", str(result_dir),
         "--data_factor", str(data_factor),
         "--max_steps", str(cfg["max_steps"]),
-        "--eval_steps", "7000", "15000", "30000", str(cfg["max_steps"]),
-        "--save_steps", "7000", "15000", "30000", str(cfg["max_steps"]),
+        "--eval_steps", *[str(s) for s in eval_steps],
+        "--save_steps", *[str(s) for s in save_steps],
         "--disable_viewer",
     ]
-    
+
     if cfg.get("sh_degree") is not None:
         cmd.extend(["--sh_degree", str(cfg["sh_degree"])])
-        
+
     if cfg.get("ssim_lambda") is not None:
         cmd.extend(["--ssim_lambda", str(cfg["ssim_lambda"])])
-        
+
     if cfg.get("antialiased"):
         cmd.append("--antialiased")
-        
+
     if cfg.get("app_opt"):
         cmd.append("--app_opt")
-        
-        
-        
+
     if cfg.get("packed"):
         cmd.append("--packed")
+
+    if cfg.get("random_bkgd"):
+        cmd.append("--random_bkgd")
+
+    if cfg.get("use_bilateral_grid"):
+        cmd.append("--use_bilateral_grid")
+
+    if cfg.get("opacity_reg", 0.0) > 0.0:
+        cmd.extend(["--opacity_reg", str(cfg["opacity_reg"])])
+
+    if cfg.get("scale_reg", 0.0) > 0.0:
+        cmd.extend(["--scale_reg", str(cfg["scale_reg"])])
+
+    if cfg.get("test_every") is not None:
+        cmd.extend(["--test_every", str(cfg["test_every"])])
         
     # Check for resume
     latest_ckpt_path = None
