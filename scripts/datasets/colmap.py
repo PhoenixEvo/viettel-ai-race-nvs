@@ -41,9 +41,14 @@ class Parser:
         self.normalize = normalize
         self.test_every = test_every
 
-        colmap_dir = os.path.join(data_dir, "sparse/0/")
+        if os.path.exists(os.path.join(data_dir, "train")):
+            data_dir_base = os.path.join(data_dir, "train")
+        else:
+            data_dir_base = data_dir
+
+        colmap_dir = os.path.join(data_dir_base, "sparse/0/")
         if not os.path.exists(colmap_dir):
-            colmap_dir = os.path.join(data_dir, "sparse")
+            colmap_dir = os.path.join(data_dir_base, "sparse")
         assert os.path.exists(
             colmap_dir
         ), f"COLMAP directory {colmap_dir} does not exist."
@@ -154,8 +159,8 @@ class Parser:
             image_dir_suffix = f"_{factor}"
         else:
             image_dir_suffix = ""
-        colmap_image_dir = os.path.join(data_dir, "images")
-        image_dir = os.path.join(data_dir, "images" + image_dir_suffix)
+        colmap_image_dir = os.path.join(data_dir_base, "images")
+        image_dir = os.path.join(data_dir_base, "images" + image_dir_suffix)
         for d in [image_dir, colmap_image_dir]:
             if not os.path.exists(d):
                 raise ValueError(f"Image folder {d} does not exist.")
