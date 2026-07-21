@@ -7,7 +7,7 @@ import cv2
 import imageio.v2 as imageio
 import numpy as np
 import torch
-from pycolmap import SceneManager
+import pycolmap
 
 from .normalize import (
     align_principle_axes,
@@ -48,10 +48,7 @@ class Parser:
             colmap_dir
         ), f"COLMAP directory {colmap_dir} does not exist."
 
-        manager = SceneManager(colmap_dir)
-        manager.load_cameras()
-        manager.load_images()
-        manager.load_points3D()
+        manager = pycolmap.Reconstruction(colmap_dir)
 
         # Extract extrinsic matrices in world-to-camera format.
         imdata = manager.images
@@ -64,8 +61,12 @@ class Parser:
         bottom = np.array([0, 0, 0, 1]).reshape(1, 4)
         for k in imdata:
             im = imdata[k]
-            rot = im.R()
-            trans = im.tvec.reshape(3, 1)
+            if hasattr(im, "cam_from_world"):
+                rot = im.cam_from_world.rotation.matrix()
+                trans = im.cam_from_world.translation.reshape(3, 1)
+            else:
+                rot = im.R() if hasattr(im, "R") else im.rotmat()
+                trans = im.tvec.reshape(3, 1)
             w2c = np.concatenate([np.concatenate([rot, trans], 1), bottom], axis=0)
             w2c_mats.append(w2c)
 
