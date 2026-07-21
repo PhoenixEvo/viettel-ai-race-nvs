@@ -194,9 +194,6 @@ def train_scene(
         shN_lr=cfg.get("shN_lr", 1.25e-4),
         scene_scale=dataset.scene_scale,
         app_opt=cfg.get("app_opt", True),
-        app_embed_dim=cfg.get("app_embed_dim", 32),
-        app_mlp_width=cfg.get("app_mlp_width", 64),
-        app_mlp_depth=cfg.get("app_mlp_depth", 2),
         app_opt_lr=cfg.get("app_opt_lr", 1e-3),
         app_opt_reg=cfg.get("app_opt_reg", 1e-6),
         device=device,
@@ -291,6 +288,11 @@ def train_scene(
             antialiased=antialiased,
             absgrad=(densify_start <= step < densify_stop),
         )
+
+        # Retain grad on means2d so AbsGrad densification can read gradients
+        if densify_start <= step < densify_stop:
+            if "means2d" in result.get("info", {}):
+                result["info"]["means2d"].retain_grad()
 
         rendered = result["rgb"]  # [H, W, 3]
 

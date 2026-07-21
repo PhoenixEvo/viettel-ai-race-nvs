@@ -97,9 +97,6 @@ class GaussianModel:
         scene_scale: float = 1.0,
         # Appearance
         app_opt: bool = True,
-        app_embed_dim: int = 32,
-        app_mlp_width: int = 64,
-        app_mlp_depth: int = 2,
         app_opt_lr: float = 1e-3,
         app_opt_reg: float = 1e-6,
         device: str = "cuda",
