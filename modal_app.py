@@ -70,16 +70,16 @@ def upload_data():
 
 
 # ---------------------------------------------------------------------------
-# Stage 2: Scene Training (GPU L4)
+# Stage 2: Scene Training (GPU T4)
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    gpu="L4",
+    gpu="T4",
     volumes={"/data": data_volume, "/results": results_volume},
     timeout=7200,  # 2 hours
 )
 def train_scene(scene_name: str, config_name: str = "default.yaml"):
-    """Train 3DGS model for a single scene on an L4 GPU."""
+    """Train 3DGS model for a single scene on a T4 GPU."""
     import sys
     sys.path.append("/root")
     from scripts.train import train_scene as run_train
@@ -158,11 +158,11 @@ def train_all_scenes(config_name: str = "default.yaml"):
 
 
 # ---------------------------------------------------------------------------
-# Stage 4: Test Pose Batch Rendering (GPU L4)
+# Stage 4: Test Pose Batch Rendering (GPU T4)
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    gpu="L4",
+    gpu="T4",
     volumes={"/data": data_volume, "/results": results_volume},
     timeout=3600,  # 1 hour
 )

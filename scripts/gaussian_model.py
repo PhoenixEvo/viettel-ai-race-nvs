@@ -392,7 +392,9 @@ class GaussianModel:
             and self.training_mode
         ):
             cam_idx_t = torch.tensor(cam_idx, device=self.device, dtype=torch.long)
-            sh_features = colors.detach()  # Don't backprop through SH for appearance
+            # Use full SH coefficients for appearance features so the shape is constant
+            sh_full = torch.cat([self.splats["sh0"], self.splats["shN"]], dim=1)
+            sh_features = sh_full.detach()  # Don't backprop through SH for appearance
             correction = self.appearance(sh_features, cam_idx_t)
             # The correction is per-Gaussian, but we need per-pixel.
             # For efficiency, we apply a simpler global color shift from the embedding.
