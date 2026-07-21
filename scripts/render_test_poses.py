@@ -8,8 +8,10 @@ def render_all_scenes(
     config_path: str,
     device: str = "cuda"
 ):
-    from scripts.colmap_parser import load_test_poses
-    from scripts.simple_trainer import render_from_checkpoint
+    import sys, os
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from colmap_parser import load_test_poses
+    from simple_trainer import render_from_checkpoint
     
     data_path = Path(data_dir)
     results_path = Path(results_dir)

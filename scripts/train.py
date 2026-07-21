@@ -1,4 +1,5 @@
 import sys
+import os
 import subprocess
 from pathlib import Path
 import yaml
@@ -78,7 +79,9 @@ def train_scene(
             
     # 3. Run subprocess
     print(f"Running command: {' '.join(cmd)}")
-    result = subprocess.run(cmd)
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path(__file__).parent) + os.pathsep + env.get("PYTHONPATH", "")
+    result = subprocess.run(cmd, env=env)
     
     if result.returncode != 0:
         raise RuntimeError(f"simple_trainer failed with code {result.returncode}")
@@ -88,7 +91,10 @@ def train_scene(
         checkpoint_callback()
         
     # 5. Return final checkpoint
-    final_ckpt = Path(result_dir) / "checkpoints" / f"ckpt_{cfg['max_steps']:05d}.pt"
-    if not final_ckpt.exists():
-        final_ckpt = Path(result_dir) / f"ckpt_{cfg['max_steps']:05d}.pt" # alternative pattern
+    # simple_trainer saves to {result_dir}/ckpts/ckpt_{step}_rank0.pt
+    ckpts_dir = Path(result_dir) / "ckpts"
+    found = sorted(ckpts_dir.glob("ckpt_*_rank0.pt")) if ckpts_dir.exists() else []
+    if not found:
+        found = sorted(Path(result_dir).glob("ckpt_*.pt"))
+    final_ckpt = found[-1] if found else ckpts_dir / f"ckpt_{cfg['max_steps']-1}_rank0.pt"
     return str(final_ckpt)

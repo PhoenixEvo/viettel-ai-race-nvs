@@ -39,7 +39,6 @@ image = (
     .env({"CUDA_HOME": "/usr/local/cuda"})
     .pip_install("gsplat==1.4.0", extra_index_url="https://download.pytorch.org/whl/cu121")
     .add_local_dir("./scripts", "/root/scripts")
-    .add_local_dir("./scripts/datasets", "/root/scripts/datasets")
     .add_local_dir("./configs", "/root/configs")
 )
 
