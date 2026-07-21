@@ -75,7 +75,7 @@ def upload_data():
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    gpu="A10G",
+    gpu="L4",
     volumes={"/data": data_volume, "/results": results_volume},
     timeout=10800,  # 3 hours
 )
@@ -184,7 +184,7 @@ def train_all_scenes(config_name: str = "default.yaml", force_retrain: bool = Fa
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    gpu="A10G",
+    gpu="L4",
     volumes={"/data": data_volume, "/results": results_volume},
     timeout=3600,  # 1 hour
 )
