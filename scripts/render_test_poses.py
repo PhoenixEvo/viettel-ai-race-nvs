@@ -122,8 +122,11 @@ def render_test_poses(
             out_name = cam.image_name
             out_file = out_path / out_name
 
-            # PIL will infer format from extension (JPEG for .JPG, PNG for .png)
-            Image.fromarray(img_np).save(out_file)
+            suffix = out_file.suffix.lower()
+            if suffix in (".jpg", ".jpeg"):
+                Image.fromarray(img_np).save(out_file, quality=95, subsampling=0)
+            else:
+                Image.fromarray(img_np).save(out_file)
 
             if (i + 1) % 10 == 0 or (i + 1) == len(dataset.test_cameras):
                 elapsed = time.time() - t_start

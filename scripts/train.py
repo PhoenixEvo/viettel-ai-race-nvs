@@ -218,6 +218,15 @@ def train_scene(
 
     # Training config
     max_steps = cfg.get("max_steps", 30000)
+
+    # Guard against re-running completed training
+    if start_step >= max_steps:
+        logger.info(
+            f"[{scene_name}] Already at step {start_step}/{max_steps}. "
+            f"Skipping. Use --no-resume to force retrain."
+        )
+        final_ckpt = ckpt_dir / f"ckpt_{max_steps:06d}.pt"
+        return str(final_ckpt)
     ssim_lambda = cfg.get("ssim_lambda", 0.2)
     opacity_reg_weight = cfg.get("opacity_reg", 0.001)
     scale_reg_weight = cfg.get("scale_reg", 0.01)

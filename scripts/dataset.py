@@ -22,6 +22,7 @@ from scripts.colmap_parser import (
     TestPose,
     load_colmap_scene,
     load_test_poses,
+    qvec_to_rotmat,
 )
 
 logger = logging.getLogger(__name__)
@@ -169,13 +170,29 @@ class SceneDataset:
             f"Found {len(existing_images)}/{len(all_images)} images on disk"
         )
 
-        # Compute camera centers for normalization
+        # Compute train camera centers
         camera_centers = np.array([img.camera_center for img in existing_images])
         points, point_colors = self.colmap_scene.get_points_array()
 
+        # Include test poses if they exist to bound the full scene properly
+        test_centers = []
+        if test_csv.exists():
+            try:
+                raw_test_poses = load_test_poses(test_csv)
+                for tp in raw_test_poses:
+                    center = -qvec_to_rotmat(tp.qvec).T @ tp.tvec
+                    test_centers.append(center)
+            except Exception as e:
+                logger.debug(f"Could not load test poses for normalization: {e}")
+        
+        if len(test_centers) > 0:
+            all_centers = np.concatenate([camera_centers, np.array(test_centers)], axis=0)
+        else:
+            all_centers = camera_centers
+
         # Compute normalization
         if normalize:
-            self.norm = compute_scene_normalization(camera_centers, points)
+            self.norm = compute_scene_normalization(all_centers, points)
         else:
             self.norm = SceneNormalization(
                 translate=np.zeros(3, dtype=np.float64), scale=1.0
