@@ -1115,17 +1115,24 @@ def render_from_checkpoint(
         ])
         K = torch.from_numpy(K).float().to(device).unsqueeze(0)
         
+        if "sh0" in splats:
+            _colors = torch.cat([splats["sh0"], splats["shN"]], dim=1)
+            _sh_degree = 3
+        else:
+            _colors = torch.sigmoid(splats["colors"])
+            _sh_degree = 0
+
         renders, _, _ = rasterization(
             means=splats["means"],
             quats=splats["quats"],
             scales=torch.exp(splats["scales"]),
             opacities=torch.sigmoid(splats["opacities"]),
-            colors=torch.cat([splats["sh0"], splats["shN"]], dim=1),
+            colors=_colors,
             viewmats=viewmat,
             Ks=K,
             width=int(test_pose.width),
             height=int(test_pose.height),
-            sh_degree=3,
+            sh_degree=_sh_degree,
             rasterize_mode="antialiased"
         )
         
