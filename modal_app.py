@@ -136,23 +136,23 @@ def train_all_scenes(config_name: str = "default.yaml"):
     print(f"Found {len(scenes)} scenes to train: {scenes}")
     
     # Launch training for all scenes concurrently
-    calls = []
+    call_map = {}
     for scene in scenes:
         print(f"Spawning parallel training container for scene: {scene}")
         try:
-            call = train_scene.spawn(scene_name=scene, config_name=config_name)
-            calls.append((scene, call))
+            call_map[scene] = train_scene.spawn(scene_name=scene, config_name=config_name)
         except Exception as e:
             print(f"Failed to spawn training for scene {scene}: {e}")
             
-    # Wait for all containers to complete
-    for scene, call in calls:
-        try:
-            print(f"Waiting for scene {scene} to finish training...")
-            call.get()
-            print(f"Scene {scene} completed successfully.")
-        except Exception as e:
-            print(f"Error training scene {scene}: {e}")
+    all_calls = list(call_map.values())
+    all_scenes = list(call_map.keys())
+    print(f"Waiting for {len(all_calls)} scenes in parallel...")
+    try:
+        results = modal.functions.gather(*all_calls)
+        for scene, result in zip(all_scenes, results):
+            print(f"Scene {scene} completed: {result}")
+    except Exception as e:
+        print(f"Error gathering results: {e}")
             
     print("All scene training loops completed.")
 

@@ -63,78 +63,6 @@ def knn(points: Tensor, k: int) -> Tensor:
     return torch.from_numpy(distances).float().to(points.device)
 
 
-# ---------------------------------------------------------------------------
-# Appearance MLP
-# ---------------------------------------------------------------------------
-class AppearanceModel(nn.Module):
-    """Per-image appearance embedding + MLP for color correction.
-
-    This absorbs outdoor exposure/lighting variation between drone captures.
-    Disabled at test time (embeddings are per training image).
-    """
-
-    def __init__(
-        self,
-        num_images: int,
-        embed_dim: int = 32,
-        feature_dim: int = 0,
-        sh_degree: int = 3,
-        mlp_width: int = 64,
-        mlp_depth: int = 2,
-    ):
-        super().__init__()
-        self.embed_dim = embed_dim
-        self.sh_degree = sh_degree
-        self.num_images = num_images
-
-        # Per-image learned embedding
-        self.embeds = nn.Embedding(num_images, embed_dim)
-        nn.init.normal_(self.embeds.weight, std=0.01)
-
-        # MLP: appearance embedding + per-Gaussian features → color correction
-        # Input: embed_dim + (sh_degree+1)^2 * 3 (SH coefficients as features)
-        sh_channels = (sh_degree + 1) ** 2 * 3
-        input_dim = embed_dim + sh_channels
-        if feature_dim > 0:
-            input_dim += feature_dim
-
-        layers = []
-        layers.append(nn.Linear(input_dim, mlp_width))
-        layers.append(nn.ReLU(inplace=True))
-        for _ in range(mlp_depth - 1):
-            layers.append(nn.Linear(mlp_width, mlp_width))
-            layers.append(nn.ReLU(inplace=True))
-        layers.append(nn.Linear(mlp_width, 3))
-        self.mlp = nn.Sequential(*layers)
-
-    def forward(
-        self,
-        sh_coeffs: Tensor,  # [N, K, 3] SH coefficients
-        cam_idx: Tensor,     # [] scalar camera index
-    ) -> Tensor:
-        """Compute per-Gaussian color correction.
-
-        Args:
-            sh_coeffs: [N, K, 3] full SH coefficients
-            cam_idx: scalar index into embedding table
-
-        Returns:
-            color_correction: [N, 3] additive color correction
-        """
-        N = sh_coeffs.shape[0]
-
-        # Get embedding for this camera
-        embed = self.embeds(cam_idx)  # [embed_dim]
-        embed = embed.unsqueeze(0).expand(N, -1)  # [N, embed_dim]
-
-        # Flatten SH coefficients as features
-        sh_flat = sh_coeffs.reshape(N, -1)  # [N, K*3]
-
-        # Concatenate and pass through MLP
-        x = torch.cat([embed, sh_flat], dim=-1)  # [N, embed_dim + K*3]
-        correction = self.mlp(x)  # [N, 3]
-
-        return correction
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +105,7 @@ class GaussianModel:
         device: str = "cuda",
     ):
         self.device = device
+        self._is_training = True
         self.sh_degree = sh_degree
         self.max_sh_degree = sh_degree
         self.active_sh_degree = 0
@@ -251,20 +180,18 @@ class GaussianModel:
 
         # Appearance model
         if app_opt and num_train_images > 0:
-            self.appearance = AppearanceModel(
-                num_images=num_train_images,
-                embed_dim=app_embed_dim,
-                sh_degree=sh_degree,
-                mlp_width=app_mlp_width,
-                mlp_depth=app_mlp_depth,
-            ).to(device)
+            # Per-image affine color transform: 3x3 matrix + 3 bias = 12 params per image
+            # Initialized to identity transform (no color change)
+            self.app_affine = nn.Embedding(num_train_images, 12).to(device)
+            nn.init.zeros_(self.app_affine.weight)
+            # We'll store as delta from identity: actual A = I + delta_A, b = delta_b
             self.app_optimizer = torch.optim.Adam(
-                self.appearance.parameters(),
+                self.app_affine.parameters(),
                 lr=app_opt_lr,
                 weight_decay=app_opt_reg,
             )
         else:
-            self.appearance = None
+            self.app_affine = None
             self.app_optimizer = None
 
         # Densification state
@@ -385,37 +312,33 @@ class GaussianModel:
         elif render_mode in ("D", "ED"):
             result["depth"] = render_colors[0]  # [H, W, 1]
 
-        # Apply appearance correction (training only)
+        # Apply per-image affine color correction (training only)
         if (
-            self.appearance is not None
+            self.app_affine is not None
             and cam_idx is not None
-            and self.training_mode
+            and self._is_training
         ):
             cam_idx_t = torch.tensor(cam_idx, device=self.device, dtype=torch.long)
-            # Use full SH coefficients for appearance features so the shape is constant
-            sh_full = torch.cat([self.splats["sh0"], self.splats["shN"]], dim=1)
-            sh_features = sh_full.detach()  # Don't backprop through SH for appearance
-            correction = self.appearance(sh_features, cam_idx_t)
-            # The correction is per-Gaussian, but we need per-pixel.
-            # For efficiency, we apply a simpler global color shift from the embedding.
-            # This is a simplified version — the full version would require a second
-            # rasterization pass or feature splatting.
-            embed = self.appearance.embeds(cam_idx_t)  # [embed_dim]
-            # Simple learned affine transform per image
-            color_shift = self.appearance.mlp(
-                torch.cat([
-                    embed.unsqueeze(0),
-                    sh_features[:1].reshape(1, -1),
-                ], dim=-1)
-            )  # [1, 3]
-            result["rgb"] = result["rgb"] + color_shift[0].view(1, 1, 3) * 0.1
+            delta = self.app_affine(cam_idx_t)  #[1]
+            # delta_A:  additive to identity, delta_b:[2]
+            delta_A = delta[:9].reshape(3, 3)
+            delta_b = delta[9:]
+            A = torch.eye(3, device=self.device) + delta_A * 0.1  # small residual
+            rgb = result["rgb"]  # [H, W, 3]
+            # Apply affine: out[h,w] = A @ rgb[h,w] + b
+            result["rgb"] = (rgb @ A.T + delta_b * 0.1).clamp(0, 1)
 
         return result
 
     @property
     def training_mode(self) -> bool:
-        """Check if any parameter requires grad (proxy for training mode)."""
-        return self.splats["means"].requires_grad
+        return self._is_training
+
+    def set_train(self):
+        self._is_training = True
+
+    def set_eval(self):
+        self._is_training = False
 
     # ------------------------------------------------------------------
     # Densification (AbsGrad / Pixel-GS style)
@@ -658,8 +581,8 @@ class GaussianModel:
             "active_sh_degree": self.active_sh_degree,
             "num_gaussians": self.num_gaussians,
         }
-        if self.appearance is not None:
-            state["appearance"] = self.appearance.state_dict()
+        if self.app_affine is not None:
+            state["app_affine"] = self.app_affine.state_dict()
             state["app_optimizer"] = self.app_optimizer.state_dict()
         if extra:
             state.update(extra)
@@ -699,8 +622,8 @@ class GaussianModel:
 
         self.active_sh_degree = state.get("active_sh_degree", 0)
 
-        if self.appearance is not None and "appearance" in state:
-            self.appearance.load_state_dict(state["appearance"])
+        if self.app_affine is not None and "app_affine" in state:
+            self.app_affine.load_state_dict(state["app_affine"])
         if self.app_optimizer is not None and "app_optimizer" in state:
             try:
                 self.app_optimizer.load_state_dict(state["app_optimizer"])

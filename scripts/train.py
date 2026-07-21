@@ -312,15 +312,19 @@ def train_scene(
             loss = loss + scale_reg_weight * loss_scale_reg
 
         # Depth distortion loss (ramp up)
-        if depth_loss_enabled and "depth" in result and step > depth_rampup:
+        if depth_loss_enabled and "depth" in result and "alpha" in result and step > depth_rampup:
             depth_weight = min(1.0, (step - depth_rampup) / depth_rampup) * depth_lambda
-            # Simple depth variance regularization
-            depth_map = result["depth"]  # [H, W, 1]
-            alpha_map = result["alpha"]  # [H, W, 1]
-            # Penalize high variance in depth where alpha is high
             if depth_weight > 0:
-                depth_var = depth_map.var()
-                loss = loss + depth_weight * depth_var * 0.01
+                depth_map = result["depth"]   # [H, W, 1]
+                alpha_map = result["alpha"]   # [H, W, 1]
+                # Only penalize regions where alpha (opacity accumulation) is high
+                # to avoid penalizing background areas with no content
+                weights = alpha_map.detach().clamp(0, 1)
+                # Distortion: penalize depth variance weighted by opacity
+                # This discourages floaters (Gaussians at wrong depths with high opacity)
+                mean_depth = (depth_map * weights).sum() / (weights.sum() + 1e-8)
+                depth_dist = (weights * (depth_map - mean_depth).abs()).mean()
+                loss = loss + depth_weight * depth_dist
 
         # Backward
         loss.backward()

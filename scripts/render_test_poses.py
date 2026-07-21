@@ -78,6 +78,7 @@ def render_test_poses(
 
     # Load checkpoint
     step = model.load_checkpoint(checkpoint_path)
+    model.set_eval()
     logger.info(f"Loaded checkpoint from step {step} with {model.num_gaussians} Gaussians")
 
     # Activate all SH degrees for best quality
