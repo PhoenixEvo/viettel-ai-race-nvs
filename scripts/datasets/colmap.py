@@ -189,6 +189,13 @@ class Parser:
         colmap_files = sorted(_get_rel_paths(colmap_image_dir))
         image_files = sorted(_get_rel_paths(image_dir))
         colmap_to_image = dict(zip(colmap_files, image_files))
+        
+        # Filter out images that are not physically present (e.g. test set images)
+        valid_inds = [i for i, name in enumerate(image_names) if name in colmap_to_image]
+        image_names = [image_names[i] for i in valid_inds]
+        camtoworlds = camtoworlds[valid_inds]
+        camera_ids = [camera_ids[i] for i in valid_inds]
+        
         image_paths = [os.path.join(image_dir, colmap_to_image[f]) for f in image_names]
 
         # 3D points and {image_name -> [point_idx]}
