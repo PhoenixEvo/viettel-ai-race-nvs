@@ -13,12 +13,16 @@ random_bkgd: true
 # Bilateral grid: corrects per-image lighting/exposure variation from drone
 use_bilateral_grid: true
 
+# DEPTH SUPERVISION from COLMAP sparse points — key PSNR boost for outdoor
+depth_loss: true
+depth_lambda: 0.01
+
 # Regularization: prune floaters in sparse aerial regions
 opacity_reg: 0.01
 scale_reg: 0.005
 
-# Use all training images — with only 100-300 images/scene, every image counts
-test_every: 999999
+# test_every: 9999 (safe upper bound — Parser auto-assigns all images to train)
+test_every: 9999
 
 eval_steps: [7000, 15000, 30000]
 save_steps: [7000, 15000, 30000]

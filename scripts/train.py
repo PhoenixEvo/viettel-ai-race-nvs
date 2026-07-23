@@ -30,6 +30,7 @@ def train_scene(
     w, h = sample_img.size
     max_dim = max(w, h)
     
+    # For outdoor/drone scenes: preserve detail, avoid over-downsampling
     if max_dim > 4800:
         data_factor = 4
     elif max_dim > 2400:
@@ -90,7 +91,14 @@ def train_scene(
 
     if cfg.get("test_every") is not None:
         cmd.extend(["--test_every", str(cfg["test_every"])])
-        
+
+    # Wire depth supervision from COLMAP sparse points
+    if cfg.get("depth_loss"):
+        cmd.append("--depth_loss")
+
+    if cfg.get("depth_lambda") is not None:
+        cmd.extend(["--depth_lambda", str(cfg["depth_lambda"])])
+
     # Check for resume
     latest_ckpt_path = None
     checkpoints_dir = Path(result_dir) / "ckpts"
